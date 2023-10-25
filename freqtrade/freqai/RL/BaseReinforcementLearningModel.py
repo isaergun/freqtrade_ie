@@ -32,21 +32,35 @@ logger = logging.getLogger(__name__)
 
 torch.multiprocessing.set_sharing_strategy('file_system')
 
+"""
+The model intended to be used must be added to one of the following lists.
+"""
 SB3_MODELS = ['PPO', 'A2C', 'DQN']
 SB3_CONTRIB_MODELS = ['TRPO', 'ARS', 'RecurrentPPO', 'MaskablePPO', 'QRDQN']
 
-
+"""
+Providing the initialization and setup for a custom reinforcement learning model
+"""
 class BaseReinforcementLearningModel(IFreqaiModel):
     """
     User created Reinforcement Learning Model prediction class
     """
 
     def __init__(self, **kwargs) -> None:
+        """
+        Constructing of the parent class (IFreqaiModel) and passing a configuration parameter from the keyword arguments.
+        """
         super().__init__(config=kwargs['config'])
+        """
+        Calculating the number of threads to use.
+        """        
         self.max_threads = min(self.freqai_info['rl_config'].get(
             'cpu_count', 1), max(int(self.max_system_threads / 2), 1))
         th.set_num_threads(self.max_threads)
         self.reward_params = self.freqai_info['rl_config']['model_reward_parameters']
+        """
+        Initializing the training and evaluation environments.
+        """ 
         self.train_env: Union[VecMonitor, SubprocVecEnv, gym.Env] = gym.Env()
         self.eval_env: Union[VecMonitor, SubprocVecEnv, gym.Env] = gym.Env()
         self.eval_callback: Optional[MaskableEvalCallback] = None
@@ -54,6 +68,9 @@ class BaseReinforcementLearningModel(IFreqaiModel):
         self.rl_config = self.freqai_info['rl_config']
         self.df_raw: DataFrame = DataFrame()
         self.continual_learning = self.freqai_info.get('continual_learning', False)
+        """
+        Determining which reinforcement learning library to import based on the model_type
+        """
         if self.model_type in SB3_MODELS:
             import_str = 'stable_baselines3'
         elif self.model_type in SB3_CONTRIB_MODELS:
@@ -69,6 +86,9 @@ class BaseReinforcementLearningModel(IFreqaiModel):
         self.unset_outlier_removal()
         self.net_arch = self.rl_config.get('net_arch', [128, 128])
         self.dd.model_type = import_str
+        """
+        Initializing the tensorboard_callback as an instance of TensorboardCallback with specified parameters.
+        """
         self.tensorboard_callback: TensorboardCallback = \
             TensorboardCallback(verbose=1, actions=BaseActions)
 
@@ -90,6 +110,9 @@ class BaseReinforcementLearningModel(IFreqaiModel):
             self.freqai_info['data_split_parameters'].update({'shuffle': False})
             logger.warning('User tried to shuffle training data. Setting shuffle to False')
 
+    """
+    Training a reinforcement learning model using provided data. 
+    """
     def train(
         self, unfiltered_df: DataFrame, pair: str, dk: FreqaiDataKitchen, **kwargs
     ) -> Any:
@@ -147,6 +170,9 @@ class BaseReinforcementLearningModel(IFreqaiModel):
 
         return model
 
+    """
+    Configuring the training and evaluation environments for the reinforcement learning model.
+    """
     def set_train_and_eval_environments(self, data_dictionary: Dict[str, DataFrame],
                                         prices_train: DataFrame, prices_test: DataFrame,
                                         dk: FreqaiDataKitchen):
